@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Link stats</title>
+  <link href="/styles.css" rel="stylesheet" />
+</head>
+<body>
+<header class="site-header"><h1>TinyLink</h1></header>
+<main class="container">
+  <section class="card">
+    <h2 id="title">Stats</h2>
+    <div id="content">Loading...</div>
+  </section>
+</main>
+<script>
+async function load() {
+  const code = location.pathname.split('/').pop();
+  const res = await fetch('/api/links/'+code);
+  const el = document.getElementById('content');
+  if (res.status === 404) { el.innerHTML = '<p>Not found</p>'; return; }
+  const j = await res.json();
+  el.innerHTML = `
+    <p><strong>Code:</strong> ${j.code}</p>
+    <p><strong>URL:</strong> <a href="${j.url}" target="_blank">${j.url}</a></p>
+    <p><strong>Clicks:</strong> ${j.clicks}</p>
+    <p><strong>Last clicked:</strong> ${j.last_clicked || '—'}</p>
+    <p><strong>Created:</strong> ${j.created_at}</p>
+    <p><a href="/">Back to dashboard</a></p>
+  `;
+}
+load();
+</script>
+</body>
+</html>

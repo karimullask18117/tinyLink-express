@@ -1,0 +1,112 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TinyLink - Dashboard</title>
+  <link href="styles.css" rel="stylesheet" />
+</head>
+<body>
+<header class="site-header">
+  <h1>TinyLink</h1>
+</header>
+<main class="container">
+  <section class="form-card">
+    <h2>Create Short Link</h2>
+    <form id="createForm">
+      <label>Target URL
+        <input id="url" name="url" placeholder="https://example.com/long/path" required />
+      </label>
+      <label>Custom code (optional, 6-8 chars a-zA-Z0-9)
+        <input id="code" name="code" placeholder="custom01" />
+      </label>
+      <button id="submitBtn">Create</button>
+      <div id="formMsg" class="muted"></div>
+    </form>
+  </section>
+
+  <section class="table-card">
+    <h2>Your Links</h2>
+    <input id="search" placeholder="Search by code or url" />
+    <table id="linksTable">
+      <thead><tr><th>Code</th><th>URL</th><th>Clicks</th><th>Last Clicked</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div id="empty" class="muted">No links yet.</div>
+  </section>
+</main>
+<footer class="site-footer">Made for tinylink assignment</footer>
+
+<script>
+const $ = sel => document.querySelector(sel);
+const tbody = $('#linksTable tbody');
+const empty = $('#empty');
+async function load() {
+  const res = await fetch('/api/links');
+  const data = await res.json();
+  tbody.innerHTML = '';
+  if (!data || data.length === 0) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  for (const row of data) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><a href="/code/${row.code}">${row.code}</a></td>
+      <td class="truncate"><a href="${row.url}" target="_blank" rel="noopener">${row.url}</a></td>
+      <td>${row.clicks}</td>
+      <td>${row.last_clicked||''}</td>
+      <td>
+        <button data-code="${row.code}" class="del">Delete</button>
+        <button data-code="${row.code}" class="copy">Copy</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+document.addEventListener('click', async (e) => {
+  if (e.target.classList.contains('del')) {
+    const code = e.target.dataset.code;
+    if (!confirm('Delete '+code+'?')) return;
+    await fetch('/api/links/'+code, { method: 'DELETE' });
+    load();
+  } else if (e.target.classList.contains('copy')) {
+    const code = e.target.dataset.code;
+    const url = location.origin + '/' + code;
+    navigator.clipboard.writeText(url);
+    alert('Copied: '+url);
+  }
+});
+$('#createForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const btn = $('#submitBtn'); btn.disabled = true;
+  const url = $('#url').value.trim();
+  const code = $('#code').value.trim() || undefined;
+  $('#formMsg').textContent = '';
+  try {
+    const res = await fetch('/api/links', { method: 'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({url, code}) });
+    if (res.status === 409) {
+      $('#formMsg').textContent = 'Code already exists.';
+    } else if (!res.ok) {
+      const j = await res.json();
+      $('#formMsg').textContent = j.error || 'Error';
+    } else {
+      const j = await res.json();
+      $('#formMsg').textContent = 'Created: '+location.origin+'/'+j.code;
+      $('#url').value=''; $('#code').value='';
+      load();
+    }
+  } catch (err) {
+    $('#formMsg').textContent = err.message;
+  } finally { btn.disabled = false; }
+});
+$('#search').addEventListener('input', async (e) => {
+  const q = e.target.value.toLowerCase();
+  const rows = tbody.querySelectorAll('tr');
+  rows.forEach(r => {
+    const txt = r.innerText.toLowerCase();
+    r.style.display = txt.includes(q) ? '' : 'none';
+  });
+});
+load();
+</script>
+</body>
+</html>
